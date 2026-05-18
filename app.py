@@ -1,7 +1,9 @@
 import streamlit as st
-import json
-import os
-from datetime import datetime
+import time
+
+# =====================================
+# CONFIG
+# =====================================
 
 st.set_page_config(
     page_title="StudyFlow",
@@ -9,82 +11,55 @@ st.set_page_config(
     layout="centered"
 )
 
-DATA_FILE = "tasks.json"
-
-# =========================
-# Load Data
-# =========================
-
-def load_tasks():
-
-    if not os.path.exists(DATA_FILE):
-        return []
-
-    with open(DATA_FILE, "r") as file:
-        return json.load(file)
-
-
-# =========================
-# Save Data
-# =========================
-
-def save_tasks(tasks):
-
-    with open(DATA_FILE, "w") as file:
-        json.dump(tasks, file, indent=4)
-
-
-# =========================
-# Initial Data
-# =========================
+# =====================================
+# SESSION STATE
+# =====================================
 
 if "tasks" not in st.session_state:
-    st.session_state.tasks = load_tasks()
-
-if "timer_running" not in st.session_state:
-    st.session_state.timer_running = False
+    st.session_state.tasks = []
 
 if "timer_seconds" not in st.session_state:
     st.session_state.timer_seconds = 25 * 60
 
+if "timer_running" not in st.session_state:
+    st.session_state.timer_running = False
 
-# =========================
-# Title
-# =========================
+# =====================================
+# TITLE
+# =====================================
 
 st.title("📚 StudyFlow")
-st.caption("Smart To-Do List Pelajar")
+st.subheader("Smart To-Do List Pelajar")
 
 st.info(
     "Sedikit progress setiap hari tetap lebih baik daripada tidak sama sekali."
 )
 
+# =====================================
+# PROGRESS BAR
+# =====================================
 
-# =========================
-# Progress Bar
-# =========================
+total_tasks = len(st.session_state.tasks)
 
-completed_tasks = [
+completed_tasks = len([
     task for task in st.session_state.tasks
     if task["completed"]
-]
+])
 
 progress = 0
 
-if len(st.session_state.tasks) > 0:
-    progress = len(completed_tasks) / len(st.session_state.tasks)
+if total_tasks > 0:
+    progress = completed_tasks / total_tasks
 
-st.subheader("📈 Progress Tugas")
+st.write(f"### Progress Tugas: {int(progress * 100)}%")
+
 st.progress(progress)
 
-st.write(f"{int(progress * 100)}% selesai")
+# =====================================
+# FORM TAMBAH TUGAS
+# =====================================
 
-
-# =========================
-# Form Tambah Tugas
-# =========================
-
-st.subheader("➕ Tambah Tugas")
+st.write("## ➕ Tambah Tugas")
 
 with st.form("task_form"):
 
@@ -114,9 +89,9 @@ with st.form("task_form"):
 
     deadline = st.date_input("Deadline")
 
-    submitted = st.form_submit_button("Tambah")
+    submit = st.form_submit_button("Tambah")
 
-    if submitted:
+    if submit:
 
         new_task = {
             "title": title,
@@ -127,16 +102,13 @@ with st.form("task_form"):
 
         st.session_state.tasks.append(new_task)
 
-        save_tasks(st.session_state.tasks)
-
         st.success("Tugas berhasil ditambahkan!")
 
+# =====================================
+# TAMPILKAN TUGAS
+# =====================================
 
-# =========================
-# Tampilkan Tugas
-# =========================
-
-st.subheader("📝 Daftar Tugas")
+st.write("## 📝 Daftar Tugas")
 
 sorted_tasks = sorted(
     st.session_state.tasks,
@@ -145,7 +117,7 @@ sorted_tasks = sorted(
 
 current_subject = ""
 
-for index, task in enumerate(sorted_tasks):
+for i, task in enumerate(sorted_tasks):
 
     if current_subject != task["subject"]:
 
@@ -158,8 +130,8 @@ for index, task in enumerate(sorted_tasks):
     with col1:
 
         if task["completed"]:
-            st.markdown(
-                f"~~{task['title']}~~  ")
+            st.markdown(f"~~{task['title']}~~")
+
         else:
             st.markdown(task["title"])
 
@@ -169,33 +141,28 @@ for index, task in enumerate(sorted_tasks):
 
         if not task["completed"]:
 
-            if st.button("✔", key=f"done_{index}"):
+            if st.button("✔", key=f"done_{i}"):
 
                 task["completed"] = True
-                save_tasks(st.session_state.tasks)
                 st.rerun()
 
     with col3:
 
-        if st.button("🗑", key=f"delete_{index}"):
+        if st.button("🗑", key=f"delete_{i}"):
 
             st.session_state.tasks.remove(task)
-            save_tasks(st.session_state.tasks)
             st.rerun()
 
+# =====================================
+# POMODORO TIMER
+# =====================================
 
-# =========================
-# Pomodoro Timer
-# =========================
-
-st.subheader("⏳ Pomodoro Timer")
+st.write("## ⏳ Pomodoro Timer")
 
 minutes = st.session_state.timer_seconds // 60
 seconds = st.session_state.timer_seconds % 60
 
-st.markdown(
-    f"# {minutes:02d}:{seconds:02d}"
-)
+st.markdown(f"# {minutes:02d}:{seconds:02d}")
 
 col1, col2, col3 = st.columns(3)
 
@@ -214,11 +181,13 @@ with col3:
     if st.button("Reset"):
         st.session_state.timer_seconds = 25 * 60
         st.session_state.timer_running = False
+        st.rerun()
 
+# =====================================
+# TIMER LOOP
+# =====================================
 
 if st.session_state.timer_running:
-
-    import time
 
     time.sleep(1)
 
@@ -228,8 +197,7 @@ if st.session_state.timer_running:
 
         st.success("Pomodoro selesai!")
 
-        st.session_state.timer_running = False
-
         st.session_state.timer_seconds = 25 * 60
+        st.session_state.timer_running = False
 
     st.rerun()
